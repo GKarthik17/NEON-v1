@@ -1,4 +1,5 @@
-from core.fsm import NeonFSM
+import time
+from core.fsm import NeonFSM, State
 from utils.logger import get_logger
 
 def main():
@@ -8,18 +9,20 @@ def main():
     fsm = NeonFSM(logger)
     fsm.start()
 
-    # Main event loop (v1: CLI driven)
     while True:
         try:
+            # Time-based supervision (runs always)
+            fsm.decision_tick()
+            time.sleep(1)
+
+            # Blocking input (ONLY when waiting for user)
             cmd = input("NEON> ").strip()
             if cmd.lower() in ("exit", "quit"):
-                logger.info("Shutdown requested")
                 break
 
             fsm.handle_input(cmd)
 
         except KeyboardInterrupt:
-            logger.info("Keyboard interrupt received")
             break
 
     logger.info("NEON v1 stopped")

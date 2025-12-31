@@ -75,17 +75,12 @@ class TaskManager:
         )
         return True
 
-    def tick(self):
-        """
-        Called periodically (or on FSM EXECUTION entry)
-        Returns factual signals only.
-        """
+    def tick(self, time_tracker):
         facts = {}
 
-        if self.active_task_id:
-            facts["active_task_running"] = True
-        else:
-            facts["active_task_running"] = False
+        facts["active_task_running"] = self.active_task_id is not None
+        facts["silence_seconds"] = time_tracker.seconds_since_input()
+        facts["task_inactivity_seconds"] = time_tracker.seconds_since_task_activity()
 
         facts["passive_summary"] = {
             t.name: t.compliance_score
@@ -93,3 +88,83 @@ class TaskManager:
         }
 
         return facts
+
+    def export_state(self):
+        return {
+            "active_task_id": self.active_task_id,
+            "tasks": [
+                {
+                    "id": t.id,
+                    "name": t.name,
+                    "type": t.type.name,
+                    "status": t.status.name,
+                    "duration": t.duration,
+                    "created_at": t.created_at.isoformat(),
+                    "started_at": t.started_at.isoformat() if t.started_at else None,
+                    "completed_at": t.completed_at.isoformat() if t.completed_at else None
+                }
+                for t in self.tasks.values()
+            ],
+            "passive_tasks": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "compliance_score": p.compliance_score
+                }
+                for p in self.passive_tasks.values()
+            ]
+        }
+
+    def restore_state(self, data):
+        from core.task import Task, PassiveTask, TaskType, TaskStatus
+        from datetime import datetime
+
+        self.tasks.clear()
+        self.passive_tasks.clear()
+
+        for t in data.get("tasks", []):
+            task = Task(
+                t["id"],
+                t["name"],
+                TaskType[t["type"]],
+                t["duration"]
+            )
+            task.status = TaskStatus[t["status"]]
+            task.created_at = datetime.fromisoformat(t["created_at"])
+            task.started_at = datetime.fromisoformat(t["started_at"]) if t["started_at"] else None
+            task.completed_at = datetime.fromisoformat(t["completed_at"]) if t["completed_at"] else None
+            self.tasks[task.id] = task
+
+        for p in data.get("passive_tasks", []):
+            passive = PassiveTask(p["id"], p["name"])
+            passive.compliance_score = p["compliance_score"]
+            self.passive_tasks[passive.id] = passive
+
+        self.active_task_id = data.get("active_task_id")
+        self.logger.info("TaskManager state restored")
+
+    def list_tasks(self):
+        """
+        Returns a snapshot of all tasks (active + passive)
+        """
+        active_tasks = []
+        passive_tasks = []
+
+        for task in self.tasks.values():
+            active_tasks.append({
+                "id": task.id,
+                "name": task.name,
+                "type": task.type.name,
+                "status": task.status.name,
+                "duration": task.duration
+            })
+
+        for task in self.passive_tasks.values():
+            passive_tasks.append({
+                "id": task.id,
+                "name": task.name,
+                "compliance_score": task.compliance_score
+            })
+
+        return active_tasks, passive_tasks
+
