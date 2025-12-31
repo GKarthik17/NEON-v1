@@ -3,21 +3,12 @@ class DecisionEngine:
         self.logger = logger
         self.escalation_level = 0
 
-    def evaluate(self, context):
+    def evaluate(self, facts):
         """
-        context: dict containing
-        - tasks
-        - time_elapsed
-        - user_activity
+        facts come from TaskManager.tick()
         """
-        self.logger.info("Evaluating decision context")
-
-        # Placeholder logic
-        if context.get("avoidance_detected"):
-            self.escalation_level += 1
+        if facts.get("active_task_running") is False:
             return "AVOIDANCE"
 
-        if context.get("fatigue_detected"):
-            return "BURNOUT"
-
-        return "EXECUTION"
+        # Passive signals influence later versions
+        return "CONTINUE"
