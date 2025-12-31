@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.log
+.env
+
+# VS Code
+.vscode/
+
+# Build artifacts
+build/
+dist/
+
+# Embedded
+*.elf
+*.hex
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db
