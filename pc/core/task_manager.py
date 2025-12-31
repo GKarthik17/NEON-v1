@@ -81,11 +81,19 @@ class TaskManager:
         facts["active_task_running"] = self.active_task_id is not None
         facts["silence_seconds"] = time_tracker.seconds_since_input()
         facts["task_inactivity_seconds"] = time_tracker.seconds_since_task_activity()
-
         facts["passive_summary"] = {
             t.name: t.compliance_score
             for t in self.passive_tasks.values()
         }
+
+        facts["tasks_completed"] = sum(
+            1 for t in self.tasks.values() if t.status.name == "DONE"
+        )
+
+        facts["tasks_failed"] = sum(
+            1 for t in self.tasks.values() if t.status.name == "FAILED"
+        )
+
 
         return facts
 

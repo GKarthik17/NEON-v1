@@ -1,0 +1,9 @@
+- [ ] NEON boots without error
+- [ ] FSM INIT → IDLE
+- [ ] TASK:ADD adds exactly once
+- [ ] TASK:LIST displays correctly
+- [ ] Avoidance triggers after inactivity
+- [ ] Burnout triggers only after earned effort
+- [ ] RECOVERY blocks active tasks
+- [ ] STATE:ALLOW_RECOVERY exits RECOVERY
+- [ ] Restart restores tasks from memory

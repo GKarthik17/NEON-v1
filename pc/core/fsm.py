@@ -29,6 +29,8 @@ class NeonFSM:
         self.decision_engine = DecisionEngine(logger)
         self.time_tracker = TimeTracker()
         self.execution_entered_at = None
+        self.recovery_entered_at = None
+        self.total_execution_time = 0
         self.memory = MemoryStorage(logger)
 
 
@@ -44,15 +46,23 @@ class NeonFSM:
         data = self.task_manager.export_state()
         self.memory.save(data)
 
-
-
     def transition(self, next_state):
         self.logger.info(f"FSM transition: {self.state.name} -> {next_state.name}")
+        now = time.monotonic()
 
+        # Accumulate execution effort when leaving EXECUTION
+        if self.state == State.EXECUTION and self.execution_entered_at:
+            self.total_execution_time += now - self.execution_entered_at
+
+        # Mark entry times
         if next_state == State.EXECUTION:
-            self.execution_entered_at = time.monotonic()
+            self.execution_entered_at = now
+
+        if next_state == State.RECOVERY:
+            self.recovery_entered_at = now
 
         self.state = next_state
+
 
 
     def handle_input(self, raw_cmd: str):
@@ -132,6 +142,22 @@ class NeonFSM:
                         f"Compliance: {t['compliance_score']:.2f}"
                     )
 
+        elif cmd.domain == "TASK" and cmd.action == "FOCUS":
+            if self.state == State.RECOVERY:
+                self.logger.warning("Cannot focus active tasks during RECOVERY")
+                return
+            task_id = int(cmd.params[0])
+            self.task_manager.activate_task(task_id)
+            self.save_memory()
+
+        elif cmd.domain == "STATE" and cmd.action == "ALLOW_RECOVERY":
+            if self.state != State.RECOVERY:
+                self.logger.warning("ALLOW_RECOVERY ignored: not in RECOVERY state")
+                return
+
+            self.logger.info("Manual recovery override accepted")
+            self.transition(State.IDLE)
+
         else:
             self.logger.warning("Unhandled command")
         
@@ -144,32 +170,49 @@ class NeonFSM:
 
         elif event == "BURNOUT":
             self.transition(State.BURNOUT)
-
-        elif event == "RECOVERY":
+            # Immediately move to RECOVERY after classification
             self.transition(State.RECOVERY)
 
+        elif event == "RECOVERY_COMPLETE":
+            # Safe path back to work
+            self.transition(State.IDLE)
+
         elif event == "CONTINUE":
-            # Explicit no-op (stay in EXECUTION)
             pass
 
-        else:
-            self.logger.warning(f"Unknown FSM event: {event}")
+        if event == "CONTINUE":
+            return
+
+
 
     def decision_tick(self):
         """
         Called periodically or on EXECUTION state.
         Converts task facts → FSM events.
         """
+       
         facts = self.task_manager.tick(self.time_tracker)
 
+        if self.state in (State.SHUTDOWN,):
+            return
+        # Execution duration
         if self.state == State.EXECUTION and self.execution_entered_at:
             facts["execution_duration"] = time.monotonic() - self.execution_entered_at
         else:
             facts["execution_duration"] = 0
 
-        event = self.decision_engine.evaluate(facts)
+        # Total effort
+        facts["total_execution_time"] = self.total_execution_time
 
+        # Recovery duration
+        if self.state == State.RECOVERY and self.recovery_entered_at:
+            facts["recovery_duration"] = time.monotonic() - self.recovery_entered_at
+        else:
+            facts["recovery_duration"] = 0
+
+        event = self.decision_engine.evaluate(facts, current_state=self.state.name)
         if event:
             self.handle_event(event)
+
 
 

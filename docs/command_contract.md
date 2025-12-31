@@ -1,0 +1,17 @@
+# NEON v1 Command Contract
+
+## SYS
+- SYS:START_DAY
+- SYS:SHUTDOWN
+
+## STATE
+- STATE:FORCE <STATE>
+- STATE:ALLOW_RECOVERY
+
+## TASK
+- TASK:ADD <name> <duration>
+- TASK:ADD_PASSIVE <name>
+- TASK:FOCUS <id>
+- TASK:DONE
+- TASK:FAIL
+- TASK:LIST
