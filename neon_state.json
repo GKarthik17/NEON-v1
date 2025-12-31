@@ -1,0 +1,46 @@
+{
+  "active_task_id": null,
+  "tasks": [
+    {
+      "id": 1,
+      "name": "RUN",
+      "type": "ACTIVE",
+      "status": "DONE",
+      "duration": 45,
+      "created_at": "2025-12-31T16:42:56.652207",
+      "started_at": "2025-12-31T16:47:44.578044",
+      "completed_at": "2025-12-31T16:48:01.458665"
+    },
+    {
+      "id": 2,
+      "name": "RUN",
+      "type": "ACTIVE",
+      "status": "PENDING",
+      "duration": 45,
+      "created_at": "2025-12-31T16:38:49.253215",
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "id": 3,
+      "name": "RUN",
+      "type": "ACTIVE",
+      "status": "PENDING",
+      "duration": 45,
+      "created_at": "2025-12-31T16:39:12.216919",
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "id": 4,
+      "name": "RUN",
+      "type": "ACTIVE",
+      "status": "PENDING",
+      "duration": 45,
+      "created_at": "2025-12-31T16:39:12.225076",
+      "started_at": null,
+      "completed_at": null
+    }
+  ],
+  "passive_tasks": []
+}
