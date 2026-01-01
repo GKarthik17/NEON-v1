@@ -163,6 +163,9 @@ class NeonFSM:
         
 
     def handle_event(self, event: str):
+        if event == "CONTINUE":
+            return  # silent no-op
+
         self.logger.info(f"FSM event received: {event}")
 
         if event == "AVOIDANCE":
