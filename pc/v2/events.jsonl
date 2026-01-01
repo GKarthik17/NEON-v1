@@ -1,0 +1,5 @@
+{"ts":"2026-01-01T09:22:15Z","type":"TEST_EVENT","data":{"ok":true}}
+{"ts":"2026-01-01T09:22:18Z","type":"ANOTHER_EVENT","data":{}}
+{"ts":"2026-01-01T11:53:08Z","type":"EXECUTION_START","data":{}}
+{"ts":"2026-01-01T11:54:00Z","type":"TASK_CREATED","data":{"task_id":1,"name":"RUN","duration_min":45,"task_type":"ACTIVE"}}
+{"ts":"2026-01-01T11:54:14Z","type":"TASK_STARTED","data":{"task_id":1}}

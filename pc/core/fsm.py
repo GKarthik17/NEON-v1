@@ -5,6 +5,8 @@ from core.task_manager import TaskManager
 from core.decision_engine import DecisionEngine
 from core.time_tracker import TimeTracker
 from memory.storage import MemoryStorage
+from v2.event_recorder import EventRecorder
+
 
 
 
@@ -32,6 +34,7 @@ class NeonFSM:
         self.recovery_entered_at = None
         self.total_execution_time = 0
         self.memory = MemoryStorage(logger)
+        self.event_recorder = EventRecorder()
 
 
 
@@ -47,21 +50,73 @@ class NeonFSM:
         self.memory.save(data)
 
     def transition(self, next_state):
+        if self.state == next_state:
+            return
+
         self.logger.info(f"FSM transition: {self.state.name} -> {next_state.name}")
         now = time.monotonic()
 
-        # Accumulate execution effort when leaving EXECUTION
-        if self.state == State.EXECUTION and self.execution_entered_at:
-            self.total_execution_time += now - self.execution_entered_at
+        # ---------- EXIT OLD STATE ----------
 
-        # Mark entry times
+        if self.state == State.EXECUTION and self.execution_entered_at is not None:
+            duration = int(now - self.execution_entered_at)
+            self.total_execution_time += duration
+
+            try:
+                self.event_recorder.record(
+                    "EXECUTION_END",
+                    {"duration_sec": duration}
+                )
+            except Exception:
+                pass
+
+            self.execution_entered_at = None
+
+        if self.state == State.RECOVERY and self.recovery_entered_at is not None:
+            duration = int(now - self.recovery_entered_at)
+
+            try:
+                self.event_recorder.record(
+                    "RECOVERY_END",
+                    {"duration_sec": duration}
+                )
+            except Exception:
+                pass
+
+            self.recovery_entered_at = None
+
+        # ---------- ENTER NEW STATE ----------
+
         if next_state == State.EXECUTION:
             self.execution_entered_at = now
+            try:
+                self.event_recorder.record("EXECUTION_START")
+            except Exception:
+                pass
 
-        if next_state == State.RECOVERY:
+        elif next_state == State.AVOIDANCE:
+            try:
+                self.event_recorder.record("AVOIDANCE_ENTERED")
+            except Exception:
+                pass
+
+        elif next_state == State.BURNOUT:
+            try:
+                self.event_recorder.record("BURNOUT_ENTERED")
+            except Exception:
+                pass
+
+        elif next_state == State.RECOVERY:
             self.recovery_entered_at = now
+            try:
+                self.event_recorder.record("RECOVERY_START")
+            except Exception:
+                pass
+
+        # ---------- COMMIT STATE ----------
 
         self.state = next_state
+
 
 
 
@@ -79,46 +134,109 @@ class NeonFSM:
             self.logger.error(f"Command error: {e}")
 
     def route_command(self, cmd):
+        # ---------------- SYS COMMANDS ----------------
+
         if cmd.domain == "SYS" and cmd.action == "START_DAY":
             self.transition(State.PLANNING)
+            return
 
-        elif cmd.domain == "STATE" and cmd.action == "FORCE":
+        if cmd.domain == "SYS" and cmd.action == "SHUTDOWN":
+            self.transition(State.SHUTDOWN)
+            return
+
+        # ---------------- STATE COMMANDS ----------------
+
+        if cmd.domain == "STATE" and cmd.action == "FORCE":
             state_name = cmd.params[0]
             self.transition(State[state_name])
+            return
 
-        elif cmd.domain == "SYS" and cmd.action == "SHUTDOWN":
-            self.transition(State.SHUTDOWN)
+        if cmd.domain == "STATE" and cmd.action == "ALLOW_RECOVERY":
+            if self.state != State.RECOVERY:
+                self.logger.warning("ALLOW_RECOVERY ignored: not in RECOVERY state")
+                return
 
-        elif cmd.domain == "TASK" and cmd.action == "ADD":
-            # Syntax: TASK:ADD <name> <duration>
+            self.logger.info("Manual recovery override accepted")
+            self.transition(State.IDLE)
+            return
+
+        # ---------------- TASK COMMANDS ----------------
+
+        if cmd.domain == "TASK" and cmd.action == "ADD":
+            # TASK:ADD <name> <duration>
             name = cmd.params[0]
             duration = int(cmd.params[1])
 
             task_id = self.task_manager.add_active_task(name, duration)
             self.save_memory()
 
-        elif cmd.domain == "TASK" and cmd.action == "ADD_PASSIVE":
-            # Syntax: TASK:ADD_PASSIVE <name>
+            try:
+                self.event_recorder.record(
+                    "TASK_CREATED",
+                    {
+                        "task_id": task_id,
+                        "name": name,
+                        "duration_min": duration,
+                        "task_type": "ACTIVE"
+                    }
+                )
+            except Exception:
+                pass
+            return
+
+        if cmd.domain == "TASK" and cmd.action == "ADD_PASSIVE":
+            # TASK:ADD_PASSIVE <name>
             name = cmd.params[0]
 
             task_id = self.task_manager.add_passive_task(name)
             self.save_memory()
+            return
 
-        elif cmd.domain == "TASK" and cmd.action == "FOCUS":
-            # Syntax: TASK:FOCUS <task_id>
+        if cmd.domain == "TASK" and cmd.action == "FOCUS":
+            if self.state == State.RECOVERY:
+                self.logger.warning("Cannot focus active tasks during RECOVERY")
+                return
+
             task_id = int(cmd.params[0])
             self.task_manager.activate_task(task_id)
             self.save_memory()
 
-        elif cmd.domain == "TASK" and cmd.action == "DONE":
-            self.task_manager.complete_active_task()
+            try:
+                self.event_recorder.record(
+                    "TASK_STARTED",
+                    {"task_id": task_id}
+                )
+            except Exception:
+                pass
+            return
+
+        if cmd.domain == "TASK" and cmd.action == "DONE":
+            task = self.task_manager.complete_active_task()
             self.save_memory()
 
-        elif cmd.domain == "TASK" and cmd.action == "FAIL":
-            self.task_manager.fail_active_task()
+            try:
+                self.event_recorder.record(
+                    "TASK_COMPLETED",
+                    {"task_id": task.id}
+                )
+            except Exception:
+                pass
+            return
+
+        if cmd.domain == "TASK" and cmd.action == "FAIL":
+            task = self.task_manager.fail_active_task()
             self.save_memory()
 
-        elif cmd.domain == "TASK" and cmd.action == "LIST":
+            try:
+                self.event_recorder.record(
+                    "TASK_FAILED",
+                    {"task_id": task.id}
+                )
+            except Exception:
+                pass
+            return
+
+        if cmd.domain == "TASK" and cmd.action == "LIST":
             active, passive = self.task_manager.list_tasks()
 
             self.logger.info("=== ACTIVE TASKS ===")
@@ -141,25 +259,14 @@ class NeonFSM:
                         f"[{t['id']}] {t['name']} | "
                         f"Compliance: {t['compliance_score']:.2f}"
                     )
+            return
 
-        elif cmd.domain == "TASK" and cmd.action == "FOCUS":
-            if self.state == State.RECOVERY:
-                self.logger.warning("Cannot focus active tasks during RECOVERY")
-                return
-            task_id = int(cmd.params[0])
-            self.task_manager.activate_task(task_id)
-            self.save_memory()
+    # ---------------- FALLBACK ----------------
 
-        elif cmd.domain == "STATE" and cmd.action == "ALLOW_RECOVERY":
-            if self.state != State.RECOVERY:
-                self.logger.warning("ALLOW_RECOVERY ignored: not in RECOVERY state")
-                return
+        self.logger.warning("Unhandled command")
 
-            self.logger.info("Manual recovery override accepted")
-            self.transition(State.IDLE)
 
-        else:
-            self.logger.warning("Unhandled command")
+
         
 
     def handle_event(self, event: str):
