@@ -3,3 +3,5 @@
 {"ts":"2026-01-01T11:53:08Z","type":"EXECUTION_START","data":{}}
 {"ts":"2026-01-01T11:54:00Z","type":"TASK_CREATED","data":{"task_id":1,"name":"RUN","duration_min":45,"task_type":"ACTIVE"}}
 {"ts":"2026-01-01T11:54:14Z","type":"TASK_STARTED","data":{"task_id":1}}
+{"ts":"2026-01-01T20:45:56Z","type":"EXECUTION_END","data":{"duration_sec":31967}}
+{"ts":"2026-01-01T20:45:56Z","type":"AVOIDANCE_ENTERED","data":{}}
