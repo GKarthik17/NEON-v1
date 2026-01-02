@@ -5,3 +5,5 @@
 {"ts":"2026-01-01T11:54:14Z","type":"TASK_STARTED","data":{"task_id":1}}
 {"ts":"2026-01-01T20:45:56Z","type":"EXECUTION_END","data":{"duration_sec":31967}}
 {"ts":"2026-01-01T20:45:56Z","type":"AVOIDANCE_ENTERED","data":{}}
+{"ts":"2026-01-02T09:39:57Z","type":"TASK_CREATED","data":{"task_id":1,"name":"READ","duration_min":20,"task_type":"ACTIVE"}}
+{"ts":"2026-01-02T09:40:29Z","type":"TASK_CREATED","data":{"task_id":2,"name":"SLEEP","duration_min":32,"task_type":"ACTIVE"}}

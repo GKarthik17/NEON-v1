@@ -1,5 +1,7 @@
 from datetime import date, timedelta
 from v2.aggregators import aggregate_daily
+from v2.trends import compute_trends
+
 
 
 class InterpretiveMemory:
@@ -84,3 +86,18 @@ class InterpretiveMemory:
         if not durations:
             return None
         return int(sum(durations) / len(durations))
+
+        # ---------- TRENDS (READ-ONLY) ----------
+
+    def trends_last_3_vs_prev_3(self):
+        """
+        Compare last 3 days vs previous 3 days.
+        Returns trend labels only.
+        """
+        recent = self.last_3_days()
+        baseline_window = self.get_window(6)
+
+        # previous 3 days = first half of the 6-day window
+        baseline = baseline_window[:3]
+
+        return compute_trends(recent, baseline)

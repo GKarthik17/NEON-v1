@@ -6,6 +6,7 @@ from core.decision_engine import DecisionEngine
 from core.time_tracker import TimeTracker
 from memory.storage import MemoryStorage
 from v2.event_recorder import EventRecorder
+from v2.interpretive_memory import InterpretiveMemory
 
 
 
@@ -35,6 +36,8 @@ class NeonFSM:
         self.total_execution_time = 0
         self.memory = MemoryStorage(logger)
         self.event_recorder = EventRecorder()
+        self.im = InterpretiveMemory()
+
 
 
 
@@ -260,6 +263,46 @@ class NeonFSM:
                         f"Compliance: {t['compliance_score']:.2f}"
                     )
             return
+        
+        if cmd.domain == "V2" and cmd.action == "SUMMARY":
+            if not cmd.params or cmd.params[0] != "TODAY":
+                self.logger.warning("Usage: V2:SUMMARY TODAY")
+                return
+
+            self.im.refresh()
+            summary = self.im.get_today()
+
+            if not summary:
+                self.logger.info("No summary available for today")
+                return
+
+            self.logger.info(f"DATE: {summary['date']}")
+            self.logger.info(
+                f"EXECUTION: {summary['execution']['total_sec']//60} min "
+                f"({summary['execution']['sessions']} sessions)"
+            )
+            self.logger.info(
+                f"TASKS: {summary['tasks']['completed']} done / "
+                f"{summary['tasks']['failed']} failed"
+            )
+            self.logger.info(
+                f"AVOIDANCE: {summary['states']['avoidance_count']}"
+            )
+            self.logger.info(
+                f"RECOVERY: {summary['states']['recovery_total_sec']//60} min"
+            )
+            return
+        
+        if cmd.domain == "V2" and cmd.action == "TRENDS":
+            self.im.refresh()
+            trends = self.im.trends_last_3_vs_prev_3()
+
+            self.logger.info("TRENDS (last 3 days vs previous 3)")
+            for k, v in trends.items():
+                label = k.replace("_trend", "").replace("_", " ").title()
+                self.logger.info(f"{label}: {v}")
+            return
+
 
     # ---------------- FALLBACK ----------------
 
