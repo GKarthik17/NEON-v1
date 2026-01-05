@@ -7,6 +7,8 @@ from core.time_tracker import TimeTracker
 from memory.storage import MemoryStorage
 from v2.event_recorder import EventRecorder
 from v2.interpretive_memory import InterpretiveMemory
+from v2.formatter import format_summary, format_trends
+
 
 
 
@@ -276,32 +278,21 @@ class NeonFSM:
                 self.logger.info("No summary available for today")
                 return
 
-            self.logger.info(f"DATE: {summary['date']}")
-            self.logger.info(
-                f"EXECUTION: {summary['execution']['total_sec']//60} min "
-                f"({summary['execution']['sessions']} sessions)"
-            )
-            self.logger.info(
-                f"TASKS: {summary['tasks']['completed']} done / "
-                f"{summary['tasks']['failed']} failed"
-            )
-            self.logger.info(
-                f"AVOIDANCE: {summary['states']['avoidance_count']}"
-            )
-            self.logger.info(
-                f"RECOVERY: {summary['states']['recovery_total_sec']//60} min"
-            )
+            lines = format_summary(summary)
+            for line in lines:
+                self.logger.info(line)
             return
+
+
         
         if cmd.domain == "V2" and cmd.action == "TRENDS":
             self.im.refresh()
             trends = self.im.trends_last_3_vs_prev_3()
-
-            self.logger.info("TRENDS (last 3 days vs previous 3)")
-            for k, v in trends.items():
-                label = k.replace("_trend", "").replace("_", " ").title()
-                self.logger.info(f"{label}: {v}")
+            lines = format_trends(trends)
+            for line in lines:
+                self.logger.info(line)
             return
+
 
 
     # ---------------- FALLBACK ----------------
